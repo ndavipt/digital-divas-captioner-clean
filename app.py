@@ -137,17 +137,18 @@ def process_image():
         image_data = image_file.read()
         image_stream = io.BytesIO(image_data)
         
-        # Analyze with OpenAI Vision to get tags
+        # Analyze with OpenAI Vision to get tags and basic caption
         print("Analyzing image with OpenAI Vision...")
-        tags, _ = analyzer.analyze_image(image_stream)
+        tags, basic_caption = analyzer.analyze_image(image_stream)
         print(f"Found tags: {tags}")
+        print(f"Basic caption: {basic_caption}")
         
         # Prepare the prompt based on style and tags
         prompt = f"{CAPTION_STYLES[caption_style]} Consider these detected elements: {', '.join(tags)}"
         print(f"Sending prompt to Grok: {prompt}")  # Debug print
 
         # Send ONLY tags to X.AI (no image)
-        print("Generating caption with X.AI...")
+        print("Generating styled caption with X.AI...")
         response = client.chat.completions.create(
             model="grok-2-1212",
             messages=[
@@ -162,6 +163,11 @@ def process_image():
         # Process the response
         captions = response.choices[0].message.content.split('\n')
         captions = [cap.strip() for cap in captions if cap.strip()]
+        
+        # Add the basic caption from OpenAI Vision analysis as the first option
+        if basic_caption and basic_caption != "Could not analyze image":
+            captions.insert(0, "Basic caption: " + basic_caption)
+        
         print(f"Received captions: {captions}")  # Debug print
         
         if not captions:

@@ -81,8 +81,12 @@ class ImageAnalyzer:
     def _generate_caption(self, tags):
         """Generate caption using X.AI Grok based on tags."""
         try:
-            # Only send text tags to Grok
-            prompt = f"Based on these image tags: {', '.join(tags)}, create a descriptive caption."
+            # Only send text tags to Grok with a more detailed prompt
+            prompt = f"""Based on these image tags: {', '.join(tags)}, create a descriptive, factual caption.
+            Focus on describing what is actually visible in the image.
+            Be detailed about the scene, setting, and subjects.
+            Keep it neutral - I'll add stylistic elements later."""
+            
             response = self.xai_client.chat.completions.create(
                 model="grok-2-1212",
                 messages=[{"role": "user", "content": prompt}],
