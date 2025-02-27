@@ -123,8 +123,8 @@ def process_image():
         image_data = image_file.read()
         image_stream = io.BytesIO(image_data)
         
-        # Analyze with DeepDanbooru to get tags
-        print("Analyzing image with DeepDanbooru...")
+        # Analyze with OpenAI Vision to get tags
+        print("Analyzing image with OpenAI Vision...")
         tags, _ = analyzer.analyze_image(image_stream)
         print(f"Found tags: {tags}")
         
