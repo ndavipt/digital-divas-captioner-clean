@@ -72,8 +72,15 @@ def serve_static(filename):
 
 @app.route("/login")
 def login():
+    # Use custom domain for callback if set in environment, otherwise use dynamic URL
+    custom_domain = os.getenv("CUSTOM_DOMAIN")
+    if custom_domain:
+        callback_url = f"https://{custom_domain}/callback"
+    else:
+        callback_url = url_for("callback", _external=True)
+    
     return oauth.auth0.authorize_redirect(
-        redirect_uri=url_for("callback", _external=True)
+        redirect_uri=callback_url
     )
 
 @app.route("/callback")
@@ -84,13 +91,20 @@ def callback():
 
 @app.route("/logout")
 def logout():
+    # Use custom domain for logout if set in environment
+    custom_domain = os.getenv("CUSTOM_DOMAIN")
+    if custom_domain:
+        return_to = f"https://{custom_domain}"
+    else:
+        return_to = url_for("home", _external=True)
+        
     session.clear()
     return redirect(
         "https://" + os.getenv("AUTH0_DOMAIN")
         + "/v2/logout?"
         + urlencode(
             {
-                "returnTo": url_for("home", _external=True),
+                "returnTo": return_to,
                 "client_id": os.getenv("AUTH0_CLIENT_ID"),
             },
             quote_via=quote_plus,
