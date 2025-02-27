@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Divas Image Captioner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="auth-nav">
+      {% if not user %}
+        <a href="{{ url_for('login') }}" class="auth-button login">
+          Log In
+        </a>
+      {% else %}
+        <div class="user-info">
+          <span>Welcome, {{ user.userinfo.name }}!</span>
+          <a href="{{ url_for('logout') }}" class="auth-button logout">
+            Log Out
+          </a>
+        </div>
+      {% endif %}
+    </div>
+
+    <h1>Digital Divas Image Captioner</h1>
+
+    <div class="guidelines">
+      <h2>Usage Guidelines:</h2>
+      <ul>
+        <li>No deepfake content, AI-generated fakes, or manipulated media intended to deceive</li>
+        <li>No content involving minors or that could be interpreted as involving minors</li>
+        <li>Accept our rate limiting of 10 requests per hour</li>
+        <li>Ensure you have rights to use the images</li>
+    
+        
+        <li>Supported formats: JPG, JPEG, PNG, GIF, WEBP, BMP</li>
+      </ul>
+    </div>
+
+    <form id="captionForm">
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="imageUpload" name="image" accept="image/*" required hidden />
+        <p>Drag and drop an image here or click to select</p>
+      </div>
+
+      <img id="preview" src="#" alt="Selected Image Preview" />
+
+      <div class="style-selector">
+        <label>Select Caption Style:</label>
+        <div class="style-toggle" data-selected="safe">
+          <div class="slider"></div>
+          <button type="button" data-style="safe" class="active">
+            <span style="font-size: 20px;">🛡️</span>
+            SFW
+          </button>
+          <button type="button" data-style="spicy">
+            <span style="font-size: 20px;">💝</span>
+            SPICY
+          </button>
+          <button type="button" data-style="hot">
+            <span style="font-size: 20px;">🔥</span>
+            NSFW
+          </button>
+        </div>
+        <div class="style-description">
+          Family-friendly captions suitable for all audiences
+        </div>
+      </div>
+
+      <div class="mode-selector">
+        <label>Select Output Mode:</label>
+        <div class="mode-toggle" data-selected="caption">
+          <div class="mode-slider"></div>
+          <button type="button" data-mode="caption" class="active">Caption</button>
+          <button type="button" data-mode="flux">Flux Prompt</button>
+        </div>
+        <div class="mode-description">
+          Generate a standard image caption.
+        </div>
+      </div>
+
+      <h2>Generated Captions:</h2>
+      <div id="response">Captions will appear here after processing...</div>
+
+      <button type="submit" class="btn-full" disabled>Generate Captions</button>
+      {% if not user %}
+      <div class="login-required-notice">
+        <p>Please log in above to generate captions</p>
+      </div>
+      {% endif %}
+    </form>
+
+    
+
+  <script>
+    const form = document.getElementById('captionForm');
+    const imageInput = document.getElementById('imageUpload');
+    const preview = document.getElementById('preview');
+    const responseDiv = document.getElementById('response');
+    const uploadArea = document.getElementById('uploadArea');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const styleToggle = document.querySelector('.style-toggle');
+    const styleDescription = document.querySelector('.style-description');
+    const isUserLoggedIn = {% if user %}true{% else %}false{% endif %};
+
+    const styleDescriptions = {
+      safe: 'Captions suitable for all audiences',
+      spicy: 'Bold and flirty captions with a tasteful touch',
+      hot: 'Nsfw captions that push the boundaries'
+    };
+
+    styleToggle.querySelectorAll('button').forEach(button => {
+      button.addEventListener('click', () => {
+        const style = button.dataset.style;
+        styleToggle.dataset.selected = style;
+        styleToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+        styleDescription.textContent = styleDescriptions[style];
+      });
+    });
+
+    // Mode toggle
+    const modeToggle = document.querySelector('.mode-toggle');
+    const modeDescription = document.querySelector('.mode-description');
+
+    const modeDescriptions = {
+      caption: 'Generate a standard image caption.',
+      flux: 'Generate a nicely formatted flux prompt.'
+    };
+
+    modeToggle.querySelectorAll('button').forEach(button => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.mode;
+        modeToggle.dataset.selected = mode;
+        modeToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+        modeDescription.textContent = modeDescriptions[mode];
+      });
+    });
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      uploadArea.addEventListener(eventName, () => {
+        uploadArea.classList.remove('dragover');
+      });
+    });
+
+    uploadArea.addEventListener('drop', handleDrop);
+    uploadArea.addEventListener('click', () => imageInput.click());
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const file = dt.files[0];
+      handleFile(file);
+    }
+
+    imageInput.addEventListener('change', (e) => {
+      handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showError('Please upload an image file.');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        showError('Image size should be less than 5MB.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        submitButton.disabled = false;
+        responseDiv.textContent = 'Captions will appear here after processing...';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function showError(message) {
+      responseDiv.textContent = message;
+      preview.style.display = 'none';
+      submitButton.disabled = true;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      // Check if user is logged in
+      if (!isUserLoggedIn) {
+        responseDiv.textContent = 'Please log in to generate captions. Click the "Log In" button at the top of the page.';
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Generating...';
+      responseDiv.textContent = 'Processing...';
+
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('style', styleToggle.dataset.selected);
+        formData.append('mode', modeToggle.dataset.selected);
+
+        const res = await fetch('/caption', {
+          method: 'POST',
+          body: formData,
+          redirect: 'manual'
+        });
+
+        if (res.type === 'opaqueredirect' || res.status === 401) {
+          responseDiv.textContent = 'Please log in to generate captions. Click the "Log In" button at the top of the page.';
+          return;
+        }
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Server error');
+        }
+
+        const data = await res.json();
+        responseDiv.textContent = data.captions.join('\n\n');
+      } catch (err) {
+        if (err instanceof TypeError) {
+          responseDiv.textContent = 'Please log in to generate captions. Click the "Log In" button at the top of the page.';
+        } else {
+          responseDiv.textContent = err.message || 'An error occurred. Please try again.';
+        }
+        console.error('Error:', err);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Generate Captions';
+      }
+    });
+  </script>
+</body>
+</html>

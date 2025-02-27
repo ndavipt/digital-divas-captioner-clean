@@ -1,0 +1,11 @@
+deepdanbooru_model/model-resnet_custom_v3.h5
+deepdanbooru_model_files/model-resnet_custom_v3.h5
+*.h5
+__pycache__/
+*.pyc
+.env
+.env.local
+.vscode/
+.idea/
+node_modules/
+*.sw*
