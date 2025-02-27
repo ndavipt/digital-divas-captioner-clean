@@ -50,9 +50,9 @@ class ImageAnalyzer:
             # Encode image to base64
             base64_image = self._encode_image(image_input)
             
-            # Analyze with OpenAI Vision
+            # Analyze with OpenAI Vision (using gpt-4o with vision capability)
             response = self.openai_client.chat.completions.create(
-                model="gpt-4-vision-preview",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "user",
